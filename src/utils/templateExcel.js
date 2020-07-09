@@ -69,7 +69,6 @@ const getTemplateSchema = (data = []) => {
 
 const getTemplateResponse = (data = []) => {
     let uri = "";
-    let name = "";
     let tbody = `
     <!DOCTYPE html> <html lang="en"> 
         <head>
@@ -93,53 +92,69 @@ const getTemplateResponse = (data = []) => {
     `;
 
     data.map((item, index) => {
-        item.responses.map((response, index) => {
-            if(uri !== response.uri)
+        let { responses} = item;
+
+        if(uri !== item.uri)
+        {
+            uri = item.uri;
+            tbody += `
+                <tr>
+                    <td>${uri? uri: ""}</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            `;
+        }
+
+        responses.map((response, index) => {
+            let { schema, isObject } = response;
+
+            if(isObject)
             {
-                uri = response.uri;
                 tbody += `
-                    <tr>
-                        <td>${response.uri? response.uri: ""}</td>
+                        <tr>
+                            <td></td>
+                            <td>${schema.name? schema.name: ""}</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    `;
+                
+
+                schema.properties.map((property, index) => {
+                    tbody += `
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td>${property.name? property.name: ""}</td>
+                            <td>${property.type? property.type: ""}</td>
+                            <td>${property.format? property.format: ""}</td>
+                            <td>${property.schema? property.schema: ""}</td>
+                        </tr>
+                    `;
+                });
+            }
+            else
+            {
+                tbody += `
+                    <tr">
                         <td></td>
                         <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
+                        <td>${response.name? response.name: ""}</td>
+                        <td>${response.type? response.type: ""}</td>
+                        <td>${response.format? response.format: ""}</td>  
+                        <td>${response.schema? response.schema: ""}</td>
                     </tr>
                 `;
             }
-
-            if(index === 0)
-            {
-                name = response.name; 
-                tbody += `
-                    <tr>
-                        <td></td>
-                        <td>${name? name: ""}</td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                    </tr>
-                `
-            }
-
-            tbody += `
-                <tr>
-                    <td></td>
-                    <td></td>
-                    <td>${response.property? response.property: ""}</td>
-                    <td>${response.type? response.type: ""}</td>
-                    <td>${response.format? response.format: ""}</td>
-                    <td>${response.schema? response.schema: ""}</td>
-                </tr>
-            `;
         });
-
-        uri = "";
-
-        return null;
     });
+
 
     tbody += "</tbody> <body> </html>";
     
@@ -173,6 +188,7 @@ const getTemplateRequest = (data = []) => {
                 <th>DataType</th>
                 <th>Format</th>
                 <th>Definition</th>
+                <th>In</th>
             </tr>
         </thead>
     `;
@@ -191,21 +207,56 @@ const getTemplateRequest = (data = []) => {
                     <td></td>
                     <td></td>
                     <td></td>
+                    <td></td>
                 </tr>
             `;
         }
-        console.log(data)
+
         parameters.map((parameter, index) => {
-            tbody += `
-                <tr">
-                    <td></td>
-                    <td>${parameter.schema? parameter.schema: ""}</td>
-                    <td>${parameter.schema? "": parameter.name}</td>
-                    <td>${parameter.type}</td>                     
-                    <td></td>
-                    <td>${parameter.in}</td>
-                </tr>
-            `;
+            let { schema, isObject } = parameter;
+
+            if(isObject)
+            {
+                tbody += `
+                    <tr>
+                        <td></td>
+                        <td>${schema.name? schema.name: ""}</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>${parameter.in? parameter.in: ""}</td>
+                    </tr>
+                `;
+    
+                schema.properties.map((property, index) => {
+                   
+                    tbody += `
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td>${property.name? property.name: ""}</td>
+                            <td>${property.type? property.type: ""}</td>
+                            <td>${property.format? property.format: ""}</td>
+                            <td>${property.schema? property.schema: ""}</td>
+                            <td></td>
+                        </tr>
+                    `;
+                });
+            }
+            else{  
+                tbody += `
+                    <tr">
+                        <td></td>
+                        <td></td>
+                        <td>${parameter.name? parameter.name: ""}</td>
+                        <td>${parameter.type? parameter.type: ""}</td>
+                        <td>${parameter.format? parameter.format: ""}</td>  
+                        <td>${parameter.schema? parameter.schema: ""}</td>
+                        <td>${parameter.in? parameter.in: ""}</td>
+                    </tr>
+                `;
+            }
         });
     });
 
@@ -221,4 +272,68 @@ const getTemplateRequest = (data = []) => {
     return template;
 }
 
-export { getTemplateSchema, getTemplateResponse, getTemplateRequest}
+const getTemplateCatalog = (data = []) => {
+    let tbody = `
+    <!DOCTYPE html> <html lang="en"> 
+        <head>
+            <meta charset="utf-8" />
+        </head>
+        <body>
+            <tbody>
+        `;
+        								
+    let thead = `
+        <thead>
+            <tr>
+                <th>ID Name</th>
+                <th>Servicio</th>
+                <th>Descripcion</th>
+                <th>Categoria</th>
+                <th>Fuente</th>
+                <th>Propietario</th>
+                <th>Es Consumido</th>
+                <th>Ruta Servicio</th>
+                <th>Ruta Servicio</th>
+                <th>Tipo Servicio</th>
+                <th>Operacion</th>
+                <th>Disponibilidad </th>
+                <th>SLA (ms)</th>
+                <th>Link</th>
+            </tr>
+        </thead>
+    `;
+
+    data.map((item, index) => {
+        tbody += `
+            <tr>
+                <td>ISA_SVC_${index}</td>
+                <td></td>
+                <td></td>
+                <td>Propia</td>
+                <td>Informatica</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>${item.uri? item.uri: ""}</td>
+                <td>REST</td>
+                <td>${item.method? item.method.toUpperCase(): ""}</td>
+                <td>HIGH</td>
+                <td></td>
+                <td></td>
+            </tr>
+        `;
+    });
+
+    tbody += "</tbody> <body> </html>";
+    
+    let template = `
+        <table>
+            ${thead}
+            ${tbody}
+        </table>
+    `;
+
+    return template;
+}
+
+export { getTemplateSchema, getTemplateResponse, getTemplateRequest, getTemplateCatalog}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { getTemplateSchema, getTemplateRequest, getTemplateResponse} from "../utils/templateExcel";
+import { getTemplateSchema, getTemplateRequest, getTemplateResponse, getTemplateCatalog} from "../utils/templateExcel";
 import { saveAs } from 'file-saver';
 import XLSX from 'xlsx';
 
@@ -9,6 +9,7 @@ class App extends React.Component {
         list: [],
         schemas: [],
         responses: [],
+        uris: [],
         name: null
     }
 
@@ -21,7 +22,7 @@ class App extends React.Component {
             reader.onload = async (e) => {
                 let content = reader.result;
                 let schemas = await this.getSchemas(content);
-                
+                let uris = await this.getUris(content);
                 let requests = await this.getRequest(content, schemas);
                 let responses = await this.getResponse(content, schemas);
                 let name = file.name.split(".json");
@@ -31,8 +32,11 @@ class App extends React.Component {
                     schemas: schemas,
                     requests: requests,
                     responses: responses,
+                    uris: uris,
                     name: name 
                 }));
+
+                console.log(this.state)
         }
         reader.readAsText(file);
         };
@@ -51,7 +55,13 @@ class App extends React.Component {
             SheetNames:[], 
             Sheets:{}
         };
+        var ws0 = XLSX
+        .read(getTemplateCatalog(this.state.uris), {type:"binary"})
+        .Sheets.Sheet1;
 
+        wb.SheetNames.push("Catalogo Servicio"); 
+        wb.Sheets["Catalogo Servicio"] = ws0;
+        
         var ws1 = XLSX
         .read(getTemplateRequest(this.state.requests), {type:"binary"})
         .Sheets.Sheet1;
@@ -59,12 +69,13 @@ class App extends React.Component {
         wb.SheetNames.push("Request"); 
         wb.Sheets["Request"] = ws1;
 
-        // var ws2 = XLSX
-        // .read(getTemplateResponse(this.state.responses), {type:"binary"})
-        // .Sheets.Sheet1;
+        var ws2 = XLSX
+        .read(getTemplateResponse(this.state.responses), {type:"binary"})
+        .Sheets.Sheet1;
 
-        // wb.SheetNames.push("Responses"); 
-        // wb.Sheets["Responses"] = ws2;
+        wb.SheetNames.push("Responses"); 
+        wb.Sheets["Responses"] = ws2;
+
         var ws3 = XLSX
         .read(getTemplateSchema(this.state.schemas), {type:"binary"})
         .Sheets.Sheet1;
@@ -96,26 +107,38 @@ class App extends React.Component {
                         let subProp = subProps.parameters[parameter];
                         let { schema = null, type = null } = subProp;
                         let $ref = null;
+                        let schemaFilter = null;
 
                         if(schema)
                         {
+
                             if(schema.$ref)
                             {
                                 $ref = schema.$ref? schema.$ref.split("/").pop() : $ref;
-                                type = schema.type? schema.type : "object"
+                                type = schema.type? schema.type : "object"; 
+                                
                             }
                             else if(schema.items){
-                                let { items } = schema;
-                                $ref = items.$ref? items.$ref.split("/").pop() : $ref;
-                                type = schema.type? schema.type : "object"
+              
+                                $ref = schema.items.$ref? schema.items.$ref.split("/").pop() : $ref;
+                                type = schema.type? schema.type : "object";
+                            }
+
+                            if($ref){
+                                schemaFilter = schemas.find(s => s.name === $ref);
+                            }
+                            else
+                            {
+                                schemaFilter = schema.items.type;
                             }
                         }
 
                         parameters.push({
                             id: index,
                             ...subProp,
-                            schema: $ref,
-                            type: type
+                            schema: schemaFilter,
+                            type: type,
+                            isObject: type === "object"? true : false
                         });
 
                     });
@@ -143,42 +166,59 @@ class App extends React.Component {
         let object = JSON.parse(json);
         let { paths } = object;
 
-
         Object.keys(paths).map((key, index) => {
             let props = paths[key];
-            
             Object.keys(props).map((subKey, index) => {
                 let subProps = props[subKey];
+                let responses = [];
                 if(subProps.responses){
+
                     Object.keys(subProps.responses).map((response, index) => {
-                        let value = subProps.responses[response];
-                        let schema = value.schema ? value.schema: "";
-                        let $ref = schema.$ref? schema.$ref: "";
-    
-                        if($ref){
-                            $ref = $ref.split("/").pop() 
-                        }
-    
+                        let subProp = subProps.responses[response];
+                        let { schema = null, type = null } = subProp;
+                        let $ref = null;
+                        let schemaFilter = null;
                         if(response === "200")
                         {
-                            var schemaFilter = {}
-                            if($ref)
+                            if(schema)
                             {
-                                schemaFilter = schemas.filter(s => s.name === $ref);
-                                schemaFilter.map((element) => {
-                                    element.uri = key;
-                                });
+                                if(schema.$ref)
+                                {
+                                    $ref = schema.$ref? schema.$ref.split("/").pop() : $ref;
+                                    type = schema.type? schema.type : "object"
+                                }
+                                else if(schema.items){
+                                    let { items } = schema;
+                                    $ref = items.$ref? items.$ref.split("/").pop() : $ref;
+                                    type = schema.type? schema.type : "object"
+                                }
+                 
+                                if($ref){
+                                    schemaFilter = schemas.find(s => s.name === $ref);
+                                }
+                                else
+                                {
+                                    schemaFilter = schema.items.type;
+                                }
                             }
-                            else
-                            {
-                                schemaFilter = $ref
-                            }
-
-                            list.push({
-                                responses: schemaFilter? schemaFilter: []
+                            
+                            responses.push({
+                                id: index,
+                                ...subProp,
+                                schema: schemaFilter,
+                                type: type,
+                                isObject: type === "object"? true : false
                             });
                         }
                     }); 
+
+                    list.push({
+                        id: index,
+                        uri: key, 
+                        responses: responses
+                    });
+
+                    responses = [];
                 }
             });
         });
@@ -229,6 +269,33 @@ class App extends React.Component {
             propertiesList = [];
         });
 
+        return new Promise((resolve, reject) => {
+            resolve(list)
+        });;
+    }
+
+    getUris = (json) => {
+        let list = [];
+        let object = JSON.parse(json);
+        let { paths } = object;
+
+        Object.keys(paths).map((key, index) => {
+            let props = paths[key];
+            Object.keys(props).map((subKey, index) => {
+                let subProp = props[subKey];
+                let { tags = [], produces = [], consumes = []} = subProp;
+
+                list.push({
+                    uri: key,
+                    method: subKey,
+                    tags: tags, 
+                    produces: produces, 
+                    consumes:  consumes
+                })
+            });
+           
+        });
+        console.log(list);
         return new Promise((resolve, reject) => {
             resolve(list)
         });;
