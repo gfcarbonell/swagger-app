@@ -1,14 +1,25 @@
+// React
 import React from 'react';
 import ReactDOM from 'react-dom';
-import './index.css';
-import App from './App';
+
+// Material UI
+import {CssBaseline} from '@material-ui/core';
+import {ThemeProvider} from '@material-ui/core/styles';
+import theme from './utils/theme';
+
+// Main Page
+import App from './pages/App';
 import * as serviceWorker from './serviceWorker';
 
+
 ReactDOM.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-  document.getElementById('root')
+    <ThemeProvider theme={theme}>
+        <React.Fragment>
+            <CssBaseline />
+            <App />
+        </React.Fragment>
+    </ThemeProvider>
+    ,document.getElementById('root')
 );
 
 // If you want your app to work offline and load faster, you can change
